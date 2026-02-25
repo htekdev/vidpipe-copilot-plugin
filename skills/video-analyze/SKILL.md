@@ -11,15 +11,37 @@ This skill provides AI-powered video analysis using Google Gemini. It can analyz
 2. **Clip Opportunities** — Short (15-60s) and medium (60-180s) clips for social platforms
 3. **Enhancement Suggestions** — Overlay and diagram recommendations
 
+## Setup
+
+Before using AI-powered analysis, configure your Gemini API key:
+
+1. Get an API key from https://aistudio.google.com/apikey
+2. Run the `setup_vidpipe` tool with your API key
+3. Run `vidpipe_status` to verify configuration
+
 ## When to Use
 
 | Scenario | Tool |
 |----------|------|
+| Check if vidpipe is configured | `vidpipe_status` |
+| Configure Gemini API key | `setup_vidpipe` |
 | Find where to cut a video | `analyze_video` with `analysisType: "editorial"` |
 | Identify viral clip opportunities | `analyze_video` with `analysisType: "clips"` |
 | Get overlay/diagram suggestions | `analyze_video` with `analysisType: "enhancements"` |
 
 ## Tools
+
+### `setup_vidpipe`
+
+Configure vidpipe with your Gemini API key. Only needs to be run once.
+
+**Input:**
+- `geminiApiKey` (string, required): Your Gemini API key
+- `geminiModel` (string, optional): Model to use (default: gemini-2.5-flash)
+
+### `vidpipe_status`
+
+Check vidpipe configuration status and see which tools are available.
 
 ### `analyze_video`
 
@@ -30,8 +52,6 @@ Analyze a video file with Gemini AI.
 - `analysisType` (string): Type of analysis — `"editorial"`, `"clips"`, or `"enhancements"`
 
 **Output:** Markdown analysis with embedded JSON containing structured data (cuts, clips, enhancements)
-
-**Requirements:** `GEMINI_API_KEY` environment variable must be set.
 
 ## Examples
 

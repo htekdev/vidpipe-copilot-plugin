@@ -7,13 +7,58 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { writeFile, readFile, mkdir, rm, copyFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile, readFile, mkdir, rm, copyFile, access } from "node:fs/promises";
+import { tmpdir, homedir } from "node:os";
 import { join, basename } from "node:path";
 
 const execFileAsync = promisify(execFile);
+
+// ============================================================================
+// Configuration Management
+// ============================================================================
+const CONFIG_DIR = join(homedir(), ".vidpipe");
+const CONFIG_FILE = join(CONFIG_DIR, "config.json");
+
+interface VidpipeConfig {
+  geminiApiKey?: string;
+  geminiModel?: string;
+  ffmpegPath?: string;
+  ffprobePath?: string;
+}
+
+async function loadConfig(): Promise<VidpipeConfig> {
+  try {
+    const data = await readFile(CONFIG_FILE, "utf-8");
+    return JSON.parse(data);
+  } catch {
+    return {};
+  }
+}
+
+async function saveConfig(config: VidpipeConfig): Promise<void> {
+  await mkdir(CONFIG_DIR, { recursive: true });
+  await writeFile(CONFIG_FILE, JSON.stringify(config, null, 2));
+}
+
+async function getGeminiApiKey(): Promise<string | undefined> {
+  // Priority: env var > config file
+  if (process.env.GEMINI_API_KEY) {
+    return process.env.GEMINI_API_KEY;
+  }
+  const config = await loadConfig();
+  return config.geminiApiKey;
+}
+
+async function getGeminiModel(): Promise<string> {
+  if (process.env.GEMINI_MODEL) {
+    return process.env.GEMINI_MODEL;
+  }
+  const config = await loadConfig();
+  return config.geminiModel ?? "gemini-2.5-flash";
+}
 
 const server = new McpServer(
   {
@@ -28,33 +73,112 @@ const server = new McpServer(
 );
 
 // ============================================================================
+// Tool: setup_vidpipe
+// ============================================================================
+server.tool(
+  "setup_vidpipe",
+  "Configure vidpipe with your Gemini API key. Run this once to enable AI-powered video analysis features. Get your API key from https://aistudio.google.com/apikey",
+  {
+    geminiApiKey: z.string().describe("Your Gemini API key from https://aistudio.google.com/apikey"),
+    geminiModel: z.string().optional().describe("Gemini model to use (default: gemini-2.5-flash)"),
+  },
+  async ({ geminiApiKey, geminiModel }) => {
+    try {
+      const config = await loadConfig();
+      config.geminiApiKey = geminiApiKey;
+      if (geminiModel) {
+        config.geminiModel = geminiModel;
+      }
+      await saveConfig(config);
+      
+      return {
+        content: [{ 
+          type: "text", 
+          text: `✓ vidpipe configured successfully!\n\nConfig saved to: ${CONFIG_FILE}\n\nYou can now use AI-powered tools like analyze_video, plan_shorts, and generate_social_posts.` 
+        }],
+      };
+    } catch (err) {
+      return {
+        content: [{ type: "text", text: `Error saving config: ${err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// ============================================================================
+// Tool: vidpipe_status
+// ============================================================================
+server.tool(
+  "vidpipe_status",
+  "Check vidpipe configuration status and available features",
+  {},
+  async () => {
+    const config = await loadConfig();
+    const hasApiKey = !!(process.env.GEMINI_API_KEY || config.geminiApiKey);
+    const model = await getGeminiModel();
+    
+    const status = [
+      "# vidpipe Status\n",
+      `Config file: ${CONFIG_FILE}`,
+      `Gemini API Key: ${hasApiKey ? "✓ Configured" : "✗ Not configured (run setup_vidpipe)"}`,
+      `Gemini Model: ${model}`,
+      "",
+      "## Available Tools",
+      "",
+      "### Always Available (FFmpeg)",
+      "- extract_clip - Cut clips from video",
+      "- detect_silence - Find silent regions",
+      "- remove_silence - Remove dead air",
+      "- burn_captions - Hard-code subtitles",
+      "- generate_variants - Create aspect ratio variants",
+      "",
+      "### Requires Gemini API Key",
+      `- analyze_video - ${hasApiKey ? "✓ Ready" : "✗ Needs setup"}`,
+      `- plan_shorts - ${hasApiKey ? "✓ Ready" : "✗ Needs setup"}`,
+      `- generate_social_posts - ${hasApiKey ? "✓ Ready" : "✗ Needs setup"}`,
+    ];
+    
+    if (!hasApiKey) {
+      status.push(
+        "",
+        "## Quick Setup",
+        "1. Get API key from: https://aistudio.google.com/apikey",
+        "2. Run: setup_vidpipe with your API key"
+      );
+    }
+    
+    return {
+      content: [{ type: "text", text: status.join("\n") }],
+    };
+  }
+);
+
+// ============================================================================
 // Tool: analyze_video (requires Gemini API)
 // ============================================================================
 server.tool(
   "analyze_video",
-  "Analyze video with Gemini AI for editorial direction, clip opportunities, or enhancement suggestions. Requires GEMINI_API_KEY environment variable.",
+  "Analyze video with Gemini AI for editorial direction, clip opportunities, or enhancement suggestions. Run setup_vidpipe first to configure your API key.",
   {
-    videoPath: { type: "string", description: "Path to the video file" },
-    analysisType: { 
-      type: "string", 
-      description: "Type of analysis: 'editorial' (cuts/transitions), 'clips' (shorts/medium clips), 'enhancements' (overlay suggestions)",
-      enum: ["editorial", "clips", "enhancements"]
-    },
+    videoPath: z.string().describe("Path to the video file"),
+    analysisType: z.enum(["editorial", "clips", "enhancements"]).default("editorial").describe("Type of analysis: 'editorial' (cuts/transitions), 'clips' (shorts/medium clips), 'enhancements' (overlay suggestions)"),
   },
-  async ({ videoPath, analysisType = "editorial" }) => {
-    const apiKey = process.env.GEMINI_API_KEY;
+  async ({ videoPath, analysisType }) => {
+    const apiKey = await getGeminiApiKey();
     if (!apiKey) {
       return {
-        content: [{ type: "text", text: "Error: GEMINI_API_KEY environment variable is required for video analysis" }],
+        content: [{ type: "text", text: "Error: Gemini API key not configured.\n\nRun setup_vidpipe with your API key from https://aistudio.google.com/apikey" }],
         isError: true,
       };
     }
 
-    // Dynamic import to avoid bundling issues
+    const modelName = await getGeminiModel();
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const { GoogleAIFileManager, FileState } = await import("@google/generative-ai/server");
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-2.5-pro" });
-    const fileManager = genAI.getFileManager();
+    const model = genAI.getGenerativeModel({ model: modelName });
+    const fileManager = new GoogleAIFileManager(apiKey);
 
     const prompts = {
       editorial: `Analyze this video for editorial direction. Identify:
@@ -83,12 +207,12 @@ Return markdown + JSON: \`\`\`json{"enhancements":[{"timestamp":30,"duration":5,
       const uploadResult = await fileManager.uploadFile(videoPath, { mimeType: "video/mp4" });
       let file = uploadResult.file;
       
-      while (file.state === "PROCESSING") {
+      while (file.state === FileState.PROCESSING) {
         await new Promise(r => setTimeout(r, 2000));
         file = await fileManager.getFile(file.name);
       }
 
-      if (file.state === "FAILED") {
+      if (file.state === FileState.FAILED) {
         throw new Error("Video processing failed");
       }
 
@@ -116,10 +240,10 @@ server.tool(
   "extract_clip",
   "Extract a clip from video using FFmpeg with frame-accurate cutting",
   {
-    videoPath: { type: "string", description: "Path to source video file" },
-    start: { type: "number", description: "Start time in seconds" },
-    end: { type: "number", description: "End time in seconds" },
-    output: { type: "string", description: "Output file path" },
+    videoPath: z.string().describe("Path to source video file"),
+    start: z.number().describe("Start time in seconds"),
+    end: z.number().describe("End time in seconds"),
+    output: z.string().describe("Output file path"),
   },
   async ({ videoPath, start, end, output }) => {
     const ffmpeg = process.env.FFMPEG_PATH ?? "ffmpeg";
@@ -155,11 +279,11 @@ server.tool(
   "detect_silence",
   "Detect silent regions in video audio using FFmpeg silencedetect",
   {
-    videoPath: { type: "string", description: "Path to video file" },
-    threshold: { type: "string", description: "Silence threshold in dB (default: -30dB)" },
-    minDuration: { type: "number", description: "Minimum silence duration in seconds (default: 0.5)" },
+    videoPath: z.string().describe("Path to video file"),
+    threshold: z.string().default("-30dB").describe("Silence threshold in dB (default: -30dB)"),
+    minDuration: z.number().default(0.5).describe("Minimum silence duration in seconds (default: 0.5)"),
   },
-  async ({ videoPath, threshold = "-30dB", minDuration = 0.5 }) => {
+  async ({ videoPath, threshold, minDuration }) => {
     const ffmpeg = process.env.FFMPEG_PATH ?? "ffmpeg";
 
     try {
@@ -203,12 +327,12 @@ server.tool(
   "remove_silence",
   "Remove silent regions from video using FFmpeg trim filter",
   {
-    videoPath: { type: "string", description: "Path to video file" },
-    output: { type: "string", description: "Output file path" },
-    threshold: { type: "string", description: "Silence threshold in dB (default: -30dB)" },
-    minDuration: { type: "number", description: "Minimum silence duration (default: 0.5)" },
+    videoPath: z.string().describe("Path to video file"),
+    output: z.string().describe("Output file path"),
+    threshold: z.string().default("-30dB").describe("Silence threshold in dB (default: -30dB)"),
+    minDuration: z.number().default(0.5).describe("Minimum silence duration (default: 0.5)"),
   },
-  async ({ videoPath, output, threshold = "-30dB", minDuration = 0.5 }) => {
+  async ({ videoPath, output, threshold, minDuration }) => {
     const ffmpeg = process.env.FFMPEG_PATH ?? "ffmpeg";
     const ffprobe = process.env.FFPROBE_PATH ?? "ffprobe";
 
@@ -296,9 +420,9 @@ server.tool(
   "burn_captions",
   "Hard-code ASS/SRT subtitles into video",
   {
-    videoPath: { type: "string", description: "Path to video file" },
-    captionsFile: { type: "string", description: "Path to ASS/SRT caption file" },
-    output: { type: "string", description: "Output file path" },
+    videoPath: z.string().describe("Path to video file"),
+    captionsFile: z.string().describe("Path to ASS/SRT caption file"),
+    output: z.string().describe("Output file path"),
   },
   async ({ videoPath, captionsFile, output }) => {
     const ffmpeg = process.env.FFMPEG_PATH ?? "ffmpeg";
@@ -345,12 +469,9 @@ server.tool(
   "generate_variants",
   "Generate platform-specific aspect ratio variants (16:9, 9:16, 1:1, 4:5)",
   {
-    videoPath: { type: "string", description: "Path to video file" },
-    platforms: {
-      type: "array",
-      description: "Target platforms: tiktok, youtube, instagram, linkedin, twitter",
-    },
-    outputDir: { type: "string", description: "Output directory" },
+    videoPath: z.string().describe("Path to video file"),
+    platforms: z.array(z.string()).describe("Target platforms: tiktok, youtube, instagram, linkedin, twitter"),
+    outputDir: z.string().describe("Output directory"),
   },
   async ({ videoPath, platforms, outputDir }) => {
     const ffmpeg = process.env.FFMPEG_PATH ?? "ffmpeg";
@@ -430,16 +551,16 @@ server.tool(
 // ============================================================================
 server.tool(
   "plan_shorts",
-  "AI-powered shorts strategy with hooks, engagement scoring, and platform targeting. Requires GEMINI_API_KEY.",
+  "AI-powered shorts strategy with hooks, engagement scoring, and platform targeting. Run setup_vidpipe first to configure your API key.",
   {
-    videoPath: { type: "string", description: "Path to video file" },
-    transcriptJson: { type: "string", description: "Transcript as JSON array of {start, end, text} segments" },
+    videoPath: z.string().describe("Path to video file"),
+    transcriptJson: z.string().describe("Transcript as JSON array of {start, end, text} segments"),
   },
   async ({ videoPath, transcriptJson }) => {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = await getGeminiApiKey();
     if (!apiKey) {
       return {
-        content: [{ type: "text", text: "Error: GEMINI_API_KEY required" }],
+        content: [{ type: "text", text: "Error: Gemini API key not configured.\n\nRun setup_vidpipe with your API key from https://aistudio.google.com/apikey" }],
         isError: true,
       };
     }
@@ -450,9 +571,10 @@ server.tool(
         .map((s) => `[${Math.floor(s.start / 60)}:${String(Math.floor(s.start % 60)).padStart(2, "0")}] ${s.text}`)
         .join("\n");
 
+      const modelName = await getGeminiModel();
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-2.5-pro" });
+      const model = genAI.getGenerativeModel({ model: modelName });
 
       const prompt = `You are a viral content strategist. Analyze this transcript and plan short clips (15-60s) for TikTok, YouTube Shorts, Instagram Reels.
 
@@ -485,33 +607,32 @@ ${transcriptText}`;
 // ============================================================================
 server.tool(
   "generate_social_posts",
-  "Generate platform-optimized social media posts. Requires GEMINI_API_KEY.",
+  "Generate platform-optimized social media posts. Run setup_vidpipe first to configure your API key.",
   {
-    videoPath: { type: "string", description: "Path to video file" },
-    platforms: {
-      type: "array",
-      description: "Target platforms: tiktok, youtube, instagram, linkedin, twitter",
-    },
-    context: { type: "string", description: "Optional context about the video content" },
+    videoPath: z.string().describe("Path to video file"),
+    platforms: z.array(z.string()).describe("Target platforms: tiktok, youtube, instagram, linkedin, twitter"),
+    context: z.string().default("").describe("Optional context about the video content"),
   },
-  async ({ videoPath, platforms, context = "" }) => {
-    const apiKey = process.env.GEMINI_API_KEY;
+  async ({ videoPath, platforms, context }) => {
+    const apiKey = await getGeminiApiKey();
     if (!apiKey) {
       return {
-        content: [{ type: "text", text: "Error: GEMINI_API_KEY required" }],
+        content: [{ type: "text", text: "Error: Gemini API key not configured.\n\nRun setup_vidpipe with your API key from https://aistudio.google.com/apikey" }],
         isError: true,
       };
     }
 
     try {
+      const modelName = await getGeminiModel();
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
+      const { GoogleAIFileManager, FileState } = await import("@google/generative-ai/server");
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-2.5-pro" });
-      const fileManager = genAI.getFileManager();
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const fileManager = new GoogleAIFileManager(apiKey);
 
       const uploadResult = await fileManager.uploadFile(videoPath, { mimeType: "video/mp4" });
       let file = uploadResult.file;
-      while (file.state === "PROCESSING") {
+      while (file.state === FileState.PROCESSING) {
         await new Promise(r => setTimeout(r, 2000));
         file = await fileManager.getFile(file.name);
       }

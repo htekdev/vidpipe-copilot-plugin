@@ -10,10 +10,19 @@ This skill provides AI-powered viral content generation:
 1. **Shorts Planning** — Identify clip opportunities with hooks and engagement scoring
 2. **Social Posts** — Platform-optimized copy for TikTok, YouTube, Instagram, LinkedIn, X
 
+## Setup
+
+Before using viral content tools, configure your Gemini API key:
+
+1. Get an API key from https://aistudio.google.com/apikey
+2. Run the `setup_vidpipe` tool with your API key
+3. Run `vidpipe_status` to verify configuration
+
 ## When to Use
 
 | Scenario | Tool |
 |----------|------|
+| Check configuration status | `vidpipe_status` |
 | Plan short clips from video | `plan_shorts` |
 | Generate social media posts | `generate_social_posts` |
 
@@ -37,8 +46,6 @@ AI-powered shorts strategy with hook-first content planning.
 - `platforms`: tiktok, youtube_shorts, instagram_reels
 - `tags`: 3-6 lowercase tags
 
-**Requirements:** `GEMINI_API_KEY` environment variable
-
 **Strategy: Hook-First (Z→A→B→C)**
 Lead with the most exciting moment, then provide context. Viewers decide in 3 seconds.
 
@@ -56,8 +63,6 @@ Generate platform-specific social media posts.
 - `content`: Post copy
 - `hashtags`: Relevant tags
 - `characterCount`: Length validation
-
-**Requirements:** `GEMINI_API_KEY` environment variable
 
 **Platform Constraints:**
 | Platform | Max Length | Style |
