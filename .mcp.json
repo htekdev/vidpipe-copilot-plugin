@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "vidpipe": {
+      "command": "node",
+      "args": ["bin/mcp-server.cjs"],
+      "tools": ["*"]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "vidpipe-copilot-plugin",
+  "description": "AI-powered video editing plugin for GitHub Copilot CLI - Gemini analysis, FFmpeg tools, viral content generation",
+  "version": "0.1.0",
+  "author": {
+    "name": "htekdev",
+    "url": "https://github.com/htekdev"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/htekdev/vidpipe-copilot-plugin",
+  "keywords": ["video", "editing", "gemini", "ffmpeg", "shorts", "viral", "tiktok", "youtube"],
+  "skills": "skills/",
+  "mcpServers": ".mcp.json"
+}

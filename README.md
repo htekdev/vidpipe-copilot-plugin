@@ -2,92 +2,52 @@
 
 🎬 **GitHub Copilot CLI plugin for AI-powered video editing** — Gemini video analysis, FFmpeg editing tools, and viral content generation.
 
-## Features
-
-### 🔍 Gemini Video Analysis
-- **Editorial Analysis** — AI-powered cut point detection, pacing analysis, and transition recommendations
-- **Clip Direction** — Automatic short (15-60s) and medium (60-180s) clip identification with engagement scoring
-- **Enhancement Detection** — Smart overlay and diagram suggestions for visual comprehension
-
-### ✂️ FFmpeg Video Tools
-- **Silence Removal** — Detect and trim dead air for tighter content
-- **Clip Extraction** — Frame-accurate cutting with smart keyframe handling
-- **Caption Burning** — Hard-code styled ASS subtitles into video
-- **Platform Variants** — Generate 16:9, 9:16, 1:1, 4:5 versions for all platforms
-- **Composite Clips** — Merge non-contiguous segments with crossfade transitions
-
-### 🚀 Viral Content Generation
-- **Shorts Planning** — Hook-first content strategy (Z→A→B→C pattern) for maximum retention
-- **Social Posts** — Platform-optimized copy for TikTok, YouTube, Instagram, LinkedIn, X
-- **Hashtag Strategy** — Trending tag research and platform-specific limits
-
 ## Installation
 
 ```bash
 # Install as a Copilot CLI plugin
 gh copilot extensions install htekdev/vidpipe-copilot-plugin
-
-# Or add to your project
-npm install vidpipe-copilot-plugin
 ```
+
+## Features
+
+### 🔍 Gemini Video Analysis
+- **Editorial Analysis** — Cut point detection, pacing analysis, transition recommendations
+- **Clip Direction** — Short (15-60s) and medium (60-180s) clip identification with engagement scoring
+- **Enhancement Detection** — Overlay and diagram suggestions for visual comprehension
+
+### ✂️ FFmpeg Video Tools
+- **Silence Removal** — Detect and trim dead air
+- **Clip Extraction** — Frame-accurate cutting
+- **Caption Burning** — Hard-code ASS/SRT subtitles
+- **Platform Variants** — Generate 16:9, 9:16, 1:1, 4:5 versions
+
+### 🚀 Viral Content Generation
+- **Shorts Planning** — Hook-first content strategy (Z→A→B→C pattern)
+- **Social Posts** — Platform-optimized copy for TikTok, YouTube, Instagram, LinkedIn, X
 
 ## Skills
 
-### `video-analyze`
-Analyze a video file with Gemini AI for editorial direction, clip opportunities, and enhancement suggestions.
+This plugin provides three skills:
 
-```
-@vidpipe analyze ./recording.mp4 --type editorial
-@vidpipe analyze ./recording.mp4 --type clips
-@vidpipe analyze ./recording.mp4 --type enhancements
-```
+| Skill | Description | Trigger Phrases |
+|-------|-------------|-----------------|
+| `video-analyze` | Gemini AI video analysis | "analyze video", "find clips", "where to cut" |
+| `video-edit` | FFmpeg editing operations | "cut video", "remove silence", "burn captions" |
+| `viral-content` | Shorts planning & social posts | "plan shorts", "social posts", "viral strategy" |
 
-### `video-edit`
-Perform video editing operations using FFmpeg.
-
-```
-@vidpipe cut ./video.mp4 --start 10 --end 45 --output clip.mp4
-@vidpipe silence-remove ./video.mp4 --threshold -30dB
-@vidpipe burn-captions ./video.mp4 --captions ./captions.ass
-@vidpipe variants ./video.mp4 --platforms tiktok,youtube,instagram
-```
-
-### `viral-content`
-Generate viral content strategy and social media posts.
-
-```
-@vidpipe shorts-plan ./video.mp4 --transcript ./transcript.json
-@vidpipe social-posts ./video.mp4 --platforms all
-```
-
-## MCP Server
-
-This plugin also exposes an MCP server with video editing tools:
-
-```json
-{
-  "mcpServers": {
-    "vidpipe": {
-      "type": "local",
-      "command": "npx",
-      "args": ["vidpipe-copilot-plugin", "mcp"],
-      "tools": ["*"]
-    }
-  }
-}
-```
-
-### Available MCP Tools
+## MCP Tools
 
 | Tool | Description |
 |------|-------------|
-| `analyze_video` | Gemini-powered video analysis |
-| `extract_clip` | Cut video segment with FFmpeg |
-| `remove_silence` | Detect and trim silent regions |
-| `burn_captions` | Hardcode subtitles into video |
+| `analyze_video` | Gemini-powered video analysis (editorial/clips/enhancements) |
+| `extract_clip` | Cut video segment with frame-accurate FFmpeg |
+| `detect_silence` | Find silent regions in audio |
+| `remove_silence` | Remove silent regions from video |
+| `burn_captions` | Hard-code ASS/SRT subtitles |
 | `generate_variants` | Create multi-platform aspect ratios |
 | `plan_shorts` | AI shorts strategy with hooks |
-| `generate_posts` | Platform-specific social copy |
+| `generate_social_posts` | Platform-specific social copy |
 
 ## Configuration
 
@@ -105,25 +65,23 @@ FFMPEG_PATH=/usr/local/bin/ffmpeg
 FFPROBE_PATH=/usr/local/bin/ffprobe
 ```
 
-## Architecture
+## Plugin Structure
 
 ```
-src/
-├── tools/           # Individual tool implementations
-│   ├── analyzeVideo.ts
-│   ├── extractClip.ts
-│   ├── removeSilence.ts
-│   ├── burnCaptions.ts
-│   ├── generateVariants.ts
-│   └── viralContent.ts
-├── skills/          # Copilot skill definitions
-│   ├── video-analyze.yaml
-│   ├── video-edit.yaml
-│   └── viral-content.yaml
-├── mcp/             # MCP server implementation
-│   └── server.ts
-├── cli.ts           # Commander CLI entry
-└── index.ts         # Plugin exports
+vidpipe-copilot-plugin/
+├── plugin.json              # Plugin manifest
+├── .mcp.json                # MCP server config
+├── bin/
+│   └── mcp-server.cjs       # Bundled MCP server
+├── packages/
+│   └── mcp-server/src/      # MCP server source
+├── skills/
+│   ├── video-analyze/SKILL.md
+│   ├── video-edit/SKILL.md
+│   └── viral-content/SKILL.md
+└── .github/
+    ├── copilot/copilot-instructions.md
+    └── plugin/marketplace.json
 ```
 
 ## Development
@@ -132,19 +90,16 @@ src/
 # Install dependencies
 npm install
 
-# Build
-npm run build
+# Bundle MCP server (commits to bin/)
+npm run bundle
 
 # Run tests
 npm test
-
-# Watch mode
-npm run dev
 ```
 
 ## Related Projects
 
-- [vidpipe](https://github.com/htekdev/vidpipe) — Full video processing pipeline
+- [vidpipeCLI](https://github.com/htekdev/vidpipeCLI) — Full video processing pipeline
 - [agentic-video-editor](https://github.com/htekdev/agentic-video-editor) — Electron desktop app
 
 ## License

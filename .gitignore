@@ -6,7 +6,7 @@ npm-debug.log*
 # Dependencies
 node_modules/
 
-# Build output
+# Build output (but NOT bin/ which contains committed bundles)
 dist/
 
 # Coverage

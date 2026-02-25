@@ -1,0 +1,19 @@
+{
+  "name": "vidpipe-copilot-plugin-marketplace",
+  "owner": {
+    "name": "htekdev",
+    "email": "htekdev@users.noreply.github.com"
+  },
+  "metadata": {
+    "description": "AI-powered video editing plugin for GitHub Copilot CLI",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "vidpipe-copilot-plugin",
+      "description": "Gemini video analysis, FFmpeg editing tools, and viral content generation for Copilot CLI",
+      "version": "0.1.0",
+      "source": "."
+    }
+  ]
+}

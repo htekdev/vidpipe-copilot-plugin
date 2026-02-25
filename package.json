@@ -3,18 +3,10 @@
   "version": "0.1.0",
   "description": "GitHub Copilot CLI plugin for AI-powered video editing with Gemini analysis, FFmpeg tools, and viral content generation",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "bin": {
-    "vidpipe": "dist/cli.js"
-  },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "lint": "eslint src --ext .ts",
+    "bundle": "npx esbuild packages/mcp-server/src/server.ts --bundle --platform=node --target=node20 --format=cjs --outfile=bin/mcp-server.cjs --external:@google/generative-ai",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
@@ -38,15 +30,11 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "dependencies": {
-    "@google/generative-ai": "^0.24.0",
-    "commander": "^12.1.0",
-    "winston": "^3.17.0"
-  },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@google/generative-ai": "^0.24.0",
     "@types/node": "^22.15.2",
-    "eslint": "^9.24.0",
-    "tsup": "^8.4.0",
+    "esbuild": "^0.25.0",
     "typescript": "^5.8.2",
     "vitest": "^3.1.1"
   }
