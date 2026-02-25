@@ -1,0 +1,53 @@
+{
+  "name": "vidpipe-copilot-plugin",
+  "version": "0.1.0",
+  "description": "GitHub Copilot CLI plugin for AI-powered video editing with Gemini analysis, FFmpeg tools, and viral content generation",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "vidpipe": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "copilot",
+    "github-copilot",
+    "video-editing",
+    "ffmpeg",
+    "gemini",
+    "ai-video",
+    "shorts",
+    "tiktok",
+    "youtube-shorts",
+    "viral-content"
+  ],
+  "author": "htekdev",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/htekdev/vidpipe-copilot-plugin.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "commander": "^12.1.0",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2",
+    "eslint": "^9.24.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.1.1"
+  }
+}
